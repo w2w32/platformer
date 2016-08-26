@@ -1,0 +1,226 @@
+<!doctype HTML>
+<html>
+<head>
+<script type="text/javascript">
+var scale=20;
+var fps=30;
+var can0,can1;
+var ctx0,ctx1;
+var player;
+
+var speed=4;
+var jumpvel=10;
+var lvl=1;
+
+String.prototype.replaceAt=function(i, c) {
+    return this.substr(0,i)+c+this.substr(i+c.length)}
+
+var key={up:false,down:false,left:false,right:false,space:false};
+
+var m=[];//60 wide, 40 high
+	m[0]="HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"	
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-------------HHH-------------------------------------------"
+		+"H-----------------------------------------------------------"
+		+"H-----------H----H------------------------------------------"
+		+"H-HHHH-HHHHHHHHHHHHHHH--------------------------------------"
+		+"-------H----------------------------------------------------"
+		+"-------H---------------H------------------------------------"
+		+"------------------------H-----------------------------------"
+		+"-------------------------H----------------------------------"
+		+"--------------------------HHHHH-----------------------------"
+		+"------------------------------------------------------------"
+		+"------------------------------HH----------------------------"
+		+"------------------------------------------------------------"
+		+"---------------------------------HH-------------------------"
+		+"------------------------------------------------------------"
+		+"-------------------------------------HH---------------------"
+		+"------------------------------------------------------------"
+		+"---------------------------------HH-------------------------"
+		+"-------------------------------------H-------------H--------"
+		+"---------------------------------------HHHHHHH----H---------"
+		+"------------------------------------------------H-----------"
+		+"--------------HHHH-----------------------------H------------"
+		+"---------------------------H------------------H-------------"
+		+"---------------------------H-----------------H--------------"
+		+"---------------------------H----------------H---------------"
+		+"---------------------------H------HHHHHH--HH----------------"
+		+"----------------------------H--HH---------------------------"
+		+"------------------------------------------------------------"
+		+"--------------------------H-HHHH----------------------------"
+		+"------------------------------------------------------------"
+		+"----------------------HHH-----------------------------------"
+		+"HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
+m[1]="";		
+for(i=0;i<2400;i++){(Math.random()<0.5?m[1]+="-":m[1]+="H")}
+function kdown(e){
+	var event=window.event ? window.event:e;
+	if(event.keyCode===37){event.preventDefault();key.left=true}
+	if(event.keyCode===38){event.preventDefault();key.up=true}
+	if(event.keyCode===39){event.preventDefault();key.right=true}
+	if(event.keyCode===40){event.preventDefault();key.down=true}
+	if(event.keyCode===32){event.preventDefault();key.space=true}
+}
+function kup(){
+	var event=window.event ? window.event:e;
+	if(event.keyCode===37){key.left=false}
+	if(event.keyCode===38){key.up=false}
+	if(event.keyCode===39){key.right=false}
+	if(event.keyCode===40){key.down=false}
+	if(event.keyCode===32){key.space=false}
+}
+function drawLevel(){
+	for(var i=0;i<2400;i++){
+		if(m[lvl].charAt(i)==="-"){
+			ctx0.fillStyle="#333";
+			ctx0.fillRect((i%60)*scale,Math.floor(i/60)*scale,scale,scale);
+		}else if(m[lvl].charAt(i)==="H"){
+			ctx0.fillStyle="#a44";
+			ctx0.fillRect((i%60)*scale,Math.floor(i/60)*scale,scale,scale);
+		}else{
+			//ctx0.fillStyle="#"+Math.floor(Math.random()*9)+Math.floor(Math.random()*9)+Math.floor(Math.random()*9);
+			//ctx0.fillRect((i%60)*scale,Math.floor(i/60)*scale,scale,scale);
+		}
+	}
+}
+function Entity(){
+	this.x;
+	this.y;
+	this.xvel=0;
+	this.yvel=0;
+	this.width;
+	this.height;
+	this.facingRight=true;
+	this.leftClear=function(){
+		return(this.x>0&&m[lvl].charAt(coordToMap(this.x+this.xvel,this.y))==="-"&&m[lvl].charAt(coordToMap(this.x+this.xvel,this.y+this.height))==="-");
+	}
+	this.rightClear=function(){
+		return(this.x+this.width<1200&&m[lvl].charAt(coordToMap(this.x+this.width+this.xvel,this.y))==="-"&&m[lvl].charAt(coordToMap(this.x+this.width+this.xvel,this.y+this.height))==="-");
+	}
+	this.downClear=function(){
+		return(this.y<800&&m[lvl].charAt(coordToMap(this.x,this.y+this.height+this.yvel+1))==="-"&&m[lvl].charAt(coordToMap(this.x+this.width-1,this.y+this.height+this.yvel+1))==="-");
+	}
+	this.upClear=function(){
+		return(this.y>0&&m[lvl].charAt(coordToMap(this.x,this.y+this.yvel))==="-"&&m[lvl].charAt(coordToMap(this.x+this.width-1,this.y+this.yvel))==="-");
+	}
+	this.move=function(){
+	this.keyCommands();
+	
+	if(this.yvel<0){
+		if(!this.upClear()){
+			this.yvel=0
+			this.y-=this.y%scale;
+			}
+	}
+	if(this.downClear()){
+		if(this.yvel<scale-1){
+		this.yvel++;
+		}
+	}else{
+		if(this.yvel>0){
+			this.y+=scale-(this.y+this.height)%scale-1;
+		}
+		this.yvel=0;
+	}
+	this.y+=this.yvel;
+	
+	if(this.xvel<0){
+		if(this.leftClear()){
+			this.x+=this.xvel;
+		}else{
+			this.x-=this.x%scale;
+		}
+	}
+	if(this.xvel>0){
+		if(this.rightClear()){
+			this.x+=this.xvel;
+		}else{
+			this.x+=scale-(this.x%scale+this.width);
+		}
+	}	
+}
+}
+function Player(x,y,ctx){
+this.x=x;
+this.y=y;
+this.width=6;
+this.height=15;
+this.ctx=ctx1;
+this.draw=function(){
+	this.ctx.fillStyle="#77a";
+	this.ctx.fillRect(this.x,this.y+4,this.width,this.height-4);
+	this.ctx.fillStyle="#fec";
+	if(this.facingRight){
+		this.ctx.fillRect(this.x+2,this.y,4,4);
+	}else{
+		this.ctx.fillRect(this.x,this.y,4,4);
+	}
+}
+this.keyCommands=function(){
+	if(key.left&&!key.right){
+		this.xvel=-speed;
+		this.facingRight=false;
+	}else if(key.right&&!key.left){
+		this.xvel=speed;
+		this.facingRight=true;
+	}else{
+		this.xvel=0;
+	}
+	if(key.space&&!this.downClear()){
+		this.yvel=-jumpvel;
+	}
+}
+
+}
+Player.prototype=new Entity;
+function frame(){
+ctx1.clearRect(0,0,1200,800);
+player.move();
+player.draw();
+}
+function coordToMap(x,y){
+return(Math.floor(x/scale)+(60*Math.floor(y/scale)));
+}
+
+function canvasClick(e){
+	if(m[lvl].charAt(coordToMap(e.offsetX,e.offsetY))==="-"){
+		m[lvl]=m[lvl].replaceAt(coordToMap(e.offsetX,e.offsetY),"H");
+		drawLevel(lvl);
+	}else{
+		m[lvl]=m[lvl].replaceAt(coordToMap(e.offsetX,e.offsetY),"-");
+		drawLevel(lvl);
+	}
+}
+function init(){
+can0=document.getElementById("mapcanvas");
+ctx0=can0.getContext("2d");
+can1=document.getElementById("entitycanvas");
+ctx1=can1.getContext("2d");
+document.addEventListener("keydown",kdown);
+document.addEventListener("keyup",kup);
+
+can1.addEventListener("mousedown",canvasClick);//EventListener should be on whichever canvas is in front
+
+player=new Player(40,40);
+drawLevel(lvl);
+setInterval(frame,1000/fps);
+}
+</script>
+<style>
+canvas{
+position:absolute;
+}
+</style>
+</head>
+<body bgcolor="#ffffff" onload="init()">
+<canvas height="800" width="1200" id="mapcanvas"></canvas>
+<canvas height="800" width="1200" id="entitycanvas"></canvas>
+</body>
+</html>
